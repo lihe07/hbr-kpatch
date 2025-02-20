@@ -13,6 +13,25 @@ extern int game_pid;
 extern uint64_t base_addr;
 extern uint64_t text_addr;
 
+// Logging
+#define ERR(...)                                                               \
+  {                                                                            \
+    fprintf(stderr, "\033[0;101m E \033[0;97m ");                              \
+    fprintf(stderr, __VA_ARGS__);                                              \
+  }
+
+#define INFO(...)                                                              \
+  {                                                                            \
+    fprintf(stderr, "\033[0;104m I \033[0;97m ");                              \
+    fprintf(stderr, __VA_ARGS__);                                              \
+  }
+
+#define WARN(...)                                                              \
+  {                                                                            \
+    fprintf(stderr, "\033[0;103m W \033[0;97m ");                              \
+    fprintf(stderr, __VA_ARGS__);                                              \
+  }
+
 // asm.c
 void asm_b(uint8_t *inst, int32_t imm26);
 void asm_br_to_zero(uint8_t *inst);

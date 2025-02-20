@@ -28,37 +28,40 @@ uint64_t symbol_size(uint8_t *func) {
   return 0;
 }
 
-void inline_hook(uint64_t addr, uint8_t *func) {
+void inline_hook(uint64_t target_addr, uint8_t *func) {
   // 0. Determine the func size.
   uint64_t func_size = symbol_size(func);
   // Check if the trampoline can fit the func
   if (func_size > trampoline_size) {
-    fprintf(stderr, "Error: func too large\n");
+    ERR("inline_hook: func too large\n");
     return;
   }
 
   // Read the first instruction of the target function
-  uint8_t *first_inst = read_mem(addr, 4);
+  uint8_t *first_inst = read_mem(target_addr, 4);
 
   // Check if first_inst is a unconditional branch, if so, skip
   if ((first_inst[3] >> 2) == 0b101) {
-    printf("First instruction is a branch, skipping\n");
+    WARN("inline_hook: First instruction is a branch, skipping...\n");
     return;
   }
+  INFO("inline_hook: Dumping target before hooking...\n");
+  quick_print(target_addr);
 
-  printf("func_size: %lx\n", func_size);
+  INFO("inline_hook: Shellcode size: %lx\n", func_size);
 
+  INFO("inline_hook: Writting shellcode to %lx\n", trampoline_addr);
   // Write the func to the trampoline
   patch_mem(trampoline_addr, func, func_size);
 
-  // Write the first instruction to the trampoline
+  // Write the first instruction to the end of the func
   patch_mem(trampoline_addr + func_size, first_inst, 4);
   func_size += 4;
 
   // Write a branch back to the next inst of target function
   uint8_t jmp[4];
 
-  asm_b(jmp, (addr + 4 - trampoline_addr - func_size) >> 2);
+  asm_b(jmp, (target_addr + 4 - trampoline_addr - func_size) >> 2);
   patch_mem(trampoline_addr + func_size, jmp, 4);
   func_size += 4;
 
@@ -71,62 +74,51 @@ void inline_hook(uint64_t addr, uint8_t *func) {
 
   // Replace the first instruction of the target function with a branch to the
   // trampoline
-  int64_t offset = ((int64_t)trampoline_addr) - ((int64_t)addr);
-  printf("offset: %ld\n", offset);
+  int64_t offset = ((int64_t)trampoline_addr) - ((int64_t)target_addr);
   asm_b(jmp, offset >> 2);
 
-  patch_mem(addr, jmp, 4);
-  printf("Res:");
-  quick_print(addr);
+  patch_mem(target_addr, jmp, 4);
+
+  INFO("inline_hook: Dumping target after hooking...\n");
+  quick_print(target_addr);
 
   trampoline_addr += func_size;
   trampoline_size -= func_size;
 
-  printf("trampoline_addr: %lx\n", trampoline_addr);
-  printf("trampoline_size: %lx\n", trampoline_size);
+  INFO("inline_hook: Trampoline size left: %lx\n", trampoline_size);
 }
-
-void on_exit() { printf("Exiting\n"); }
 
 int main() {
   if (!is_root_user()) {
-    fprintf(stderr, "Error: root privileges required\n");
+    ERR("Please run as root\n");
     return 1;
   }
-  // atexit(on_exit);
 
   game_pid = find_process(".heavenburnsred");
   if (game_pid == -1) {
-    fprintf(stderr, "Error: process not found\n");
+    ERR("Process not found\n");
     return 1;
   }
 
-  printf("Found process with PID %d\n", game_pid);
+  INFO("Found process with PID %d\n", game_pid);
 
   if (!find_base()) {
-    fprintf(stderr, "Error: base address not found\n");
+    ERR("Base address not found\n");
     return 1;
   }
-  printf("Base address: %lx\n", base_addr);
-
-  uint64_t ApplyExpectedDamage = base_addr + 0x03709f9c;
-
-  printf("ApplyExpectedDamage: %lx\n", ApplyExpectedDamage);
-  quick_print(ApplyExpectedDamage + 0x114);
-
-  uint64_t demofunc = text_addr + 0xbd456c + 0x1c;
-
-  printf("demofunc: %lx\n", demofunc);
-  quick_print(demofunc);
 
   uint64_t RuntimeInit = text_addr + 0x2be734;
-  printf("RuntimeInit: %lx\n", RuntimeInit);
+  INFO("Creating trampoline at Runtime::Init (%lx)\n", RuntimeInit);
   quick_print(RuntimeInit);
   trampoline_addr = RuntimeInit;
 
-  printf("Hooking ApplyExpectedDamage\n");
-  inline_hook(ApplyExpectedDamage, (uint8_t *)mitigate_damage_to_player);
+  INFO("Starting hooking process\n");
 
-  printf("Hooking DemoFunc\n");
-  inline_hook(demofunc, (uint8_t *)demo_patch);
+  uint64_t ApplyExpectedHitContent = base_addr + 0x03709f9c;
+  INFO("1. Hooking ApplyExpectedDamage: %lx\n", ApplyExpectedHitContent);
+  inline_hook(ApplyExpectedHitContent, (uint8_t *)mitigate_damage_to_player);
+
+  uint64_t DemoFunc = text_addr + 0xbd456c + 0x1c;
+  INFO("2. Hooking DemoFunc: %lx\n", DemoFunc);
+  inline_hook(DemoFunc, (uint8_t *)demo_patch);
 }

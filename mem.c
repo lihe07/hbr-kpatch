@@ -40,8 +40,7 @@ void *read_mem(uint64_t addr, size_t size) {
   // Read the memory into the allocated buffer
   size_t bytesRead = fread(data, 1, size, mem);
   if (bytesRead != size) {
-    fprintf(stderr, "Error: Only %zu bytes read, expected %zu\n", bytesRead,
-            size);
+    ERR("read_mem: Only %zu bytes read, expected %zu\n", bytesRead, size);
     free(data);
     fclose(mem);
     return NULL;
@@ -118,26 +117,23 @@ uint64_t find_base() {
       continue;
     }
 
-    // if (perms[0] != 'r' || perms[2] != 'x') {
-    //   continue;
-    // }
     // Check ELF magic
     uint8_t *magic = read_mem(start, 4);
     if (memcmp(magic, ELFMAG, 4) != 0) {
       free(magic);
       continue;
     }
+    free(magic);
 
     // Check if start + 000357e7 is libil2cpp.so
     uint8_t *data = read_mem(start + 0x357e7, 12);
-
     if (memcmp(data, "libil2cpp.so", 12) != 0) {
       free(data);
       continue;
     }
     free(data);
 
-    printf("Found libil2cpp.so at %lx\n", start);
+    INFO("find_base: Found libil2cpp.so at %lx\n", start);
 
     // Read the ELF header
     Elf64_Ehdr *ehdr = read_mem(start, sizeof(Elf64_Ehdr));
@@ -154,6 +150,11 @@ uint64_t find_base() {
       }
     }
 
+    if (!dyn) {
+      WARN("find_base: Dynamic section not found, skipping...\n");
+      continue;
+    }
+
     // Read fini array
     uint64_t fini_array = 0;
     uint64_t fini_array_size = 0;
@@ -165,27 +166,23 @@ uint64_t find_base() {
         fini_array_size = d->d_un.d_val;
       }
     }
+
     if (!fini_array) {
-      printf("Fini array not found\n");
+      WARN("find_base: Fini array not found, skipping...\n");
       continue;
     }
 
-    printf("Fini array at %lx\n", fini_array);
+    INFO("find_base: Fini array found at %lx\n", fini_array);
 
     uint64_t *fini_array_data = read_mem(fini_array, fini_array_size);
-    for (int i = 0; i < fini_array_size / 8; i++) {
-      printf("%lx\n", fini_array_data[i]);
-    }
-
-    uint64_t real_text = fini_array_data[fini_array_size / 8 - 1];
-
-    uint64_t text = start + 0x29a9a44;
-    printf("DIFF %lx\n", real_text - text);
 
     base_addr = start;
-    text_addr = real_text;
+    // The last element of fini_array is text section
+    text_addr = fini_array_data[fini_array_size / 8 - 1];
 
-    return real_text;
+    INFO("find_base: Base address confirmed: %lx\n", base_addr);
+
+    return start;
   }
 
   return 0;
@@ -193,10 +190,12 @@ uint64_t find_base() {
 
 void quick_print(uint64_t addr) {
   uint8_t *data = read_mem(addr, 128);
+  printf("Hexdump at %lx:\n", addr);
   for (int i = 0; i < 32; i++) {
     printf("%02x", data[i]);
   }
   printf("\n");
+
   for (int i = 0; i < 128; i++) {
     printf("%02x", data[i]);
     if (i % 4 == 3) {
@@ -204,4 +203,5 @@ void quick_print(uint64_t addr) {
     }
   }
   printf("\n");
+  printf("End of hexdump\n");
 }
