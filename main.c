@@ -48,7 +48,11 @@ void inline_hook(uint64_t target_addr, uint8_t *func) {
   INFO("inline_hook: Dumping target before hooking...\n");
   quick_print(target_addr);
 
-  INFO("inline_hook: Shellcode size: %lx\n", func_size);
+  INFO("inline_hook: Shellcode size: %ld\n", func_size);
+  if (func_size % 4 != 0) {
+    ERR("inline_hook: Shellcode size must be a multiple of 4\n");
+    exit(1);
+  }
 
   INFO("inline_hook: Writting shellcode to %lx\n", trampoline_addr);
   // Write the func to the trampoline
@@ -116,7 +120,7 @@ int main() {
 
   uint64_t ApplyExpectedHitContent = base_addr + 0x03709f9c;
   INFO("1. Hooking ApplyExpectedDamage: %lx\n", ApplyExpectedHitContent);
-  inline_hook(ApplyExpectedHitContent, (uint8_t *)mitigate_damage_to_player);
+  inline_hook(ApplyExpectedHitContent, (uint8_t *)multiple_damage_boost);
 
   uint64_t DemoFunc = text_addr + 0xbd456c + 0x1c;
   INFO("2. Hooking DemoFunc: %lx\n", DemoFunc);

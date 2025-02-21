@@ -1,4 +1,5 @@
 // Set damage and damageForLabel to 5 when the player is hit
+.balign 4
 .global mitigate_damage_to_player
 mitigate_damage_to_player:
   // x0 = ptr_to_this
@@ -21,6 +22,8 @@ mitigate_damage_to_player:
 
 // Multiply the damage to the enemy
 // Divide the damage to the player
+.balign 4
+.global multiple_damage_boost
 multiple_damage_boost:
   // x0 = ptr_to_this
   // x1 = ptr_to_hitContent
@@ -31,17 +34,16 @@ multiple_damage_boost:
 
   // Get <damage>k__BackingField
   ldr w2, [x1, #0x10]
-  lsr w2, w2, #2
+  lsr w2, w2, #3
   str w2, [x1, #0x10]
 
   // Get <damageForLabel>k__BackingField
   ldr w2, [x1, #0x14]
-  lsr w2, w2, #2
+  lsr w2, w2, #3
   str w2, [x1, #0x14]
 
   b multiple_damage_boost_end
 
-  .balign 4
   multiple_damage_boost_this_is_enemy:
 
   ldr w2, [x1, #0x10]
@@ -55,6 +57,7 @@ multiple_damage_boost:
   multiple_damage_boost_end:
 .ascii "END_OF_SYMBOL"
 
+.balign 4
 .global demo_patch
 demo_patch:
   nop
