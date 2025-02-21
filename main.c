@@ -111,18 +111,18 @@ int main() {
     return 1;
   }
 
-  uint64_t RuntimeInit = text_addr + 0x2be734;
+  uint64_t RuntimeInit = base_addr + 0x2c86de8;
   INFO("Creating trampoline at Runtime::Init (%lx)\n", RuntimeInit);
   quick_print(RuntimeInit);
   trampoline_addr = RuntimeInit;
 
   INFO("Starting hooking process\n");
 
-  uint64_t ApplyExpectedHitContent = base_addr + 0x03709f9c;
+  uint64_t ApplyExpectedHitContent = base_addr + 0x37447b8;
   INFO("1. Hooking ApplyExpectedDamage: %lx\n", ApplyExpectedHitContent);
   inline_hook(ApplyExpectedHitContent, (uint8_t *)multiple_damage_boost);
 
-  uint64_t DemoFunc = text_addr + 0xbd456c + 0x1c;
-  INFO("2. Hooking DemoFunc: %lx\n", DemoFunc);
-  inline_hook(DemoFunc, (uint8_t *)demo_patch);
+  // uint64_t DemoFunc = text_addr + 0xbd456c + 0x1c;
+  // INFO("2. Hooking DemoFunc: %lx\n", DemoFunc);
+  // inline_hook(DemoFunc, (uint8_t *)demo_patch);
 }
