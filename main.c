@@ -111,14 +111,14 @@ int main() {
     return 1;
   }
 
-  uint64_t RuntimeInit = base_addr + 0x2c86de8;
+  uint64_t RuntimeInit = base_addr + 0x2c86fb0;
   INFO("Creating trampoline at Runtime::Init (%lx)\n", RuntimeInit);
   quick_print(RuntimeInit);
   trampoline_addr = RuntimeInit;
 
   INFO("Starting hooking process\n");
 
-  uint64_t ApplyExpectedHitContent = base_addr + 0x37447b8;
+  uint64_t ApplyExpectedHitContent = base_addr + 0x3744af0;
   INFO("1. Hooking ApplyExpectedDamage: %lx\n", ApplyExpectedHitContent);
   inline_hook(ApplyExpectedHitContent, (uint8_t *)multiple_damage_boost);
 
