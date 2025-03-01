@@ -11,7 +11,6 @@
 // Global variables
 extern int game_pid;
 extern uint64_t base_addr;
-extern uint64_t text_addr;
 
 // Logging
 #define ERR(...)                                                               \

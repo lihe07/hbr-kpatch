@@ -1,4 +1,5 @@
 #include "main.h"
+#include <stdint.h>
 
 void patch_mem(uint64_t addr, uint8_t *data, size_t size) {
   char path[100];
@@ -125,15 +126,7 @@ uint64_t find_base() {
     }
     free(magic);
 
-    // Check if start + 000357e7 is libil2cpp.so
-    uint8_t *data = read_mem(start + 0x357e7, 12);
-    if (memcmp(data, "libil2cpp.so", 12) != 0) {
-      free(data);
-      continue;
-    }
-    free(data);
-
-    INFO("find_base: Found libil2cpp.so at %lx\n", start);
+    INFO("find_base: Found ELF at %lx\n", start);
 
     // Read the ELF header
     Elf64_Ehdr *ehdr = read_mem(start, sizeof(Elf64_Ehdr));
@@ -155,32 +148,29 @@ uint64_t find_base() {
       continue;
     }
 
-    // Read fini array
-    uint64_t fini_array = 0;
-    uint64_t fini_array_size = 0;
+    // Read SONAME
+    uint64_t soname_off = 0;
+    uint64_t strtab_off = 0;
     for (Elf64_Dyn *d = dyn; d->d_tag != DT_NULL; d++) {
-      if (d->d_tag == DT_FINI_ARRAY) {
-        fini_array = start + d->d_un.d_ptr;
+      if (d->d_tag == DT_SONAME) {
+        soname_off = d->d_un.d_val;
+        continue;
       }
-      if (d->d_tag == DT_FINI_ARRAYSZ) {
-        fini_array_size = d->d_un.d_val;
+      if (d->d_tag == DT_STRTAB) {
+        strtab_off = d->d_un.d_val;
+        continue;
       }
     }
-
-    if (!fini_array) {
-      WARN("find_base: Fini array not found, skipping...\n");
+    char *soname = read_mem(start + strtab_off + soname_off, 12);
+    if (strcmp(soname, "libil2cpp.so") != 0) {
+      free(soname);
+      free(dyn);
       continue;
     }
 
-    INFO("find_base: Fini array found at %lx\n", fini_array);
-
-    uint64_t *fini_array_data = read_mem(fini_array, fini_array_size);
-
     base_addr = start;
-    // The last element of fini_array is text section
-    text_addr = fini_array_data[fini_array_size / 8 - 1];
 
-    INFO("find_base: Base address confirmed: %lx\n", base_addr);
+    INFO("find_base: Found libil2cpp.so at %lx\n", base_addr);
 
     return start;
   }
